@@ -1,48 +1,84 @@
+import re
+import serial
 from time import sleep
+
+
+class SerialConnectionError(Exception):
+
+    def __init__(self, value):
+        self.value = value
+
+    def __str__(self):
+        return repr(self.value)
 
 
 class AbstractDoor():
 
-    check_for_codes = True
+    # \\n.+\\r
+    code_re = re.compile("\\n(.+)\\r", re.UNICODE)
 
     def __init__(self, *args, **kwargs):
-        # set GPIO pins to defaults
-        # door - HIGH
-        # red LED - HIGH
+
+        self.serial_conn = serial.Serial("/dev/ttyAMA0", 2400, timeout=0)
+
+        if not self.serial_conn.isOpen():
+            raise SerialConnectionError("Serial connection couldn't be open.")
+
         self.lock()
         self.toggle_red_led(on=True)
 
     def main_loop(self):
         while True:
-            data = self.get_key_code()
-            if data and self.check_key_code(data):
+            data = self.read_RFID()
+            if data and self.validate_key_code(data):
                 self.toggle_red_led()
                 self.toggle_green_led(on=True)
-                sleep(1)
                 self.unlock()
+                sleep(1)
                 self.toggle_red_led(on=True)
                 self.toggle_green_led()
-            self.check_lock_request()
+                self.check_for_lock_request()
 
-    def check_key_code(self, data):
-        raise NotImplementedError("Not implemented.")
-
-    def get_key_code(self):
-        if self.check_for_codes:
-            return self._read_RFID()
+    def find_key_code(self, data):
+        match = re.match(self.code_re, data)
+        if match:
+            return match.groups()[0]
         return None
 
-    def check_lock_request(self):
+    def read_RFID(self):
+        # flushes to remove any remaining bytes
+        self.serial_conn.flushInput()
+        data = b""
+
+        while True:
+            while self.serial_conn.inWaiting() > 0:
+                data += self.serial_conn.read(1)
+
+            if data:
+                str_data = str(data, 'utf-8')
+                code = self.find_key_code(str_data)
+                if code:
+                    return code
+                data = b""
+
+    def check_for_lock_request(self):
+        while True:
+            sleep(0.1)
+            if self.get_state:
+                self.lock()
+                break
+
+    def get_state(self):
         raise NotImplementedError("Not implemented.")
 
-    def _read_RFID(self):
+    def validate_key_code(self, data):
         raise NotImplementedError("Not implemented.")
 
     def unlock(self):
-        self.check_for_codes = False
+        raise NotImplementedError("Not implemented.")
 
     def lock(self):
-        self.check_for_codes = True
+        raise NotImplementedError("Not implemented.")
 
     def toggle_red_led(self, on=False):
         raise NotImplementedError("Not implemented.")

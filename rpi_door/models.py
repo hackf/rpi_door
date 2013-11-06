@@ -10,15 +10,16 @@ from sqlalchemy.schema import (
 )
 
 
-db_engine = create_engine(None, echo=True, pool_recycle=3600)
+db_engine = create_engine("sqlite:///database.db",
+                          echo=True, pool_recycle=3600)
 
-session = scoped_session(sessionmaker(autocommit=False,
-                                      autoflush=True,
-                                      expire_on_commit=False,
-                                      bind=db_engine))
+db_session = scoped_session(sessionmaker(autocommit=False,
+                                         autoflush=True,
+                                         expire_on_commit=False,
+                                         bind=db_engine))
 
 Base = declarative_base()
-Base.query = session.query_property()
+Base.query = db_session.query_property()
 
 
 from sqlalchemy import (
@@ -27,7 +28,30 @@ from sqlalchemy import (
     Unicode,
     ForeignKey,
 )
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship, joinedload
+from contextlib import contextmanager
+
+
+@contextmanager
+def session_context():
+    yield
+    db_session.remove()
+
+
+class SQLAlchemyBinding():
+
+    def validate_key_code(self, data):
+        with session_context():
+            key = KeyCode.query\
+                         .options(joinedload(KeyCode.user))\
+                         .filter(KeyCode.code == data)\
+                         .first()
+            # do other stuff
+            # push to redis??
+            # log stuff
+            if key:
+                return True
+            return False
 
 
 class User(Base):
@@ -49,9 +73,6 @@ class KeyCode(Base):
 
 
 def init_db():
-    # import all modules here that might define models so that
-    # they will be registered properly on the metadata.  Otherwise
-    # you will have to import them first before calling init_db()
     Base.metadata.create_all(db_engine)
 
 
