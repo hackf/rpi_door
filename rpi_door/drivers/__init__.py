@@ -20,7 +20,7 @@ class AbstractDoor():
     def __init__(self, *args, **kwargs):
 
         port = kwargs.get("port", "/dev/ttyAMA0")
-        baudrate = kwargs.get("baudrate", "2400")
+        baudrate = kwargs.get("baudrate", 2400)
 
         self.serial_conn = serial.Serial(port, baudrate, timeout=0)
 
@@ -67,7 +67,7 @@ class AbstractDoor():
     def check_for_lock_request(self):
         while True:
             sleep(0.1)
-            if self.get_state:
+            if self.get_state():
                 self.lock()
                 break
 

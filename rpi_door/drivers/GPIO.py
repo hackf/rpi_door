@@ -22,7 +22,6 @@ class RPiDoor(SQLAlchemyBinding, AbstractDoor):
 
         super(RPiDoor, self).__init__(*args, **kwargs)
 
-    @property
     def get_state(self):
         # pin 17 returns 1 when not pressed and 0 when pressed
         # ie: switch is "normally closed"
