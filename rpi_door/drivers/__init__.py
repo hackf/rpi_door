@@ -57,12 +57,13 @@ class AbstractDoor():
             while self.serial_conn.inWaiting() > 0:
                 data += self.serial_conn.read(1)
 
-            if data:
-                str_data = str(data, 'utf-8')
-                code = self.find_key_code(str_data)
-                if code:
-                    return code
-                data = b""
+                if data:
+                    str_data = str(data, 'utf-8')
+                    code = self.find_key_code(str_data)
+                    if code:
+                        return code
+                    if len(data) > 30:
+                        data = b""
 
     def check_for_lock_request(self):
         while True:
