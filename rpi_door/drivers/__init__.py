@@ -69,6 +69,7 @@ class AbstractDoor():
         while True:
             sleep(0.1)
             if self.get_state():
+                sleep(30)
                 self.lock()
                 break
 
