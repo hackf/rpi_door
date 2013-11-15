@@ -49,7 +49,7 @@ class SQLAlchemyBinding():
             # do other stuff
             # push to redis??
             # log stuff
-            if key:
+            if key and key.user:
                 return True
             return False
 
