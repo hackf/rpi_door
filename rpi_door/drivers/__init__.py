@@ -1,3 +1,8 @@
+# Copyright (C) 2013 Windsor Hackforge
+#
+# This module is part of RPi Door and is released under
+# the MIT License: http://www.opensource.org/licenses/mit-license.php
+
 import re
 import serial
 from time import sleep

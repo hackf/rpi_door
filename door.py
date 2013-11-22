@@ -1,4 +1,4 @@
-#!/bin/python
+#!/usr/bin/python
 from rpi_door.drivers.GPIO import RPiDoor
 
 rpi_door = RPiDoor()
