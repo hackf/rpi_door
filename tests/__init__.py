@@ -1,36 +1,28 @@
-from unitcase import TestCase
+from unittest import TestCase
+from unittest.mock import patch
+from rpi_door.models import SQLAlchemyMixin
 from rpi_door.drivers import AbstractDoor
-from rpi_door.models import init_db, drop_db, SQLAlchemyMixin
+
+
+class TestDoor(SQLAlchemyMixin, AbstractDoor):
+
+    def __init__(self, *args, **kwargs):
+
+        super(TestDoor, self).__init__(*args, **kwargs)
 
 
 class BaseSuite(TestCase):
 
     def setUp(self):
-        init_db()
+        self.door = TestDoor(**{
+            "sqlalchemy.url": "sqlite://",
+            "sqlalchemy.echo": False,
+            "sqlalchemy.pool_recycle": 3600
+        })
 
     def tearDown(self):
-        drop_db()
+        self.door.drop_db()
 
-
-class TestDoor(AbstractDoor, SQLAlchemyMixin):
-
-    def __init__(self, *args, **kwargs):
-        super(TestDoor, self).__init__(*args, **kwargs)
-
-    def check_for_lock_request(self):
-        pass
-
-    def read_RFID(self):
-        pass
-
-    def unlock(self):
-        pass
-
-    def lock(self):
-        pass
-
-    def toggle_red_led(self):
-        pass
-
-    def toggle_green_led(self):
-        pass
+    def test_test(self):
+        print(dir(self.door))
+        self.door.main_loop()

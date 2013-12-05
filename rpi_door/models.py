@@ -33,14 +33,14 @@ from contextlib import contextmanager
 Base = declarative_base()
 
 
-class SQLAlchemyMixin(object):
+class SQLAlchemyMixin():
 
     def __init__(self, *args, **kwargs):
 
         self.engine = engine_from_config(kwargs, prefix="sqlalchemy.")
 
         # calls the object's init in the stack
-        if not isinstance(super(SQLAlchemyMixin, self), object):
+        if isinstance(super(SQLAlchemyMixin, self), object):
             super(SQLAlchemyMixin, self).__init__(*args, **kwargs)
 
         # prepare expects the tables to exist in the database already
