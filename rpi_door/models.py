@@ -3,9 +3,7 @@
 # This module is part of RPi Door and is released under
 # the MIT License: http://www.opensource.org/licenses/mit-license.php
 
-from sqlalchemy import create_engine, engine
-from sqlalchemy.orm import scoped_session, sessionmaker
-from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.ext.declarative import declarative_base, DeferredReflection
 from sqlalchemy.schema import (
     MetaData,
     Table,
@@ -13,40 +11,101 @@ from sqlalchemy.schema import (
     ForeignKeyConstraint,
     DropConstraint,
 )
-
-
-db_engine = create_engine("sqlite:///database.db",
-                          echo=True, pool_recycle=3600)
-
-db_session = scoped_session(sessionmaker(autocommit=False,
-                                         autoflush=True,
-                                         expire_on_commit=False,
-                                         bind=db_engine))
-
-Base = declarative_base()
-Base.query = db_session.query_property()
-
-
 from sqlalchemy import (
+    engine_from_config,
+    engine,
     Column,
     Integer,
     Unicode,
     ForeignKey,
 )
-from sqlalchemy.orm import relationship, joinedload
+from sqlalchemy.orm import (
+    scoped_session,
+    sessionmaker,
+    relationship,
+    joinedload,
+    backref,
+)
+from sqlalchemy.exc import NoSuchTableError
 from contextlib import contextmanager
 
 
-@contextmanager
-def session_context():
-    yield
-    db_session.remove()
+Base = declarative_base()
 
 
-class SQLAlchemyBinding():
+class SQLAlchemyMixin(object):
+
+    def __init__(self, *args, **kwargs):
+
+        self.engine = engine_from_config(kwargs, prefix="sqlalchemy.")
+
+        # calls the object's init in the stack
+        if not isinstance(super(SQLAlchemyMixin, self), object):
+            super(SQLAlchemyMixin, self).__init__(*args, **kwargs)
+
+        # prepare expects the tables to exist in the database already
+        # this is kind of a hack. I'll need to think of a better way
+        # later on
+        try:
+            DeferredReflection.prepare(self.engine)
+        except NoSuchTableError:
+            self.init_db()
+            DeferredReflection.prepare(self.engine)
+
+        self._session = scoped_session(sessionmaker(autocommit=False,
+                                                    autoflush=True,
+                                                    expire_on_commit=False,
+                                                    bind=self.engine))
+
+        Base.query = self._session.query_property()
+
+    def init_db(self):
+        Base.metadata.create_all(self.engine)
+
+    def drop_db(self):
+        """
+        It is a workaround for dropping all tables in sqlalchemy.
+        """
+        if self.engine is None:
+            raise Exception
+        conn = self.engine.connect()
+        trans = conn.begin()
+        inspector = engine.reflection.Inspector.from_engine(self.engine)
+        # gather all data first before dropping anything.
+        # some DBs lock after things have been dropped in
+        # a transaction.
+
+        metadata = MetaData()
+
+        tbs = []
+        all_fks = []
+
+        for table_name in inspector.get_table_names():
+            fks = []
+
+            for fk in inspector.get_foreign_keys(table_name):
+                if not fk['name']:
+                    continue
+                fks.append(ForeignKeyConstraint((), (), name=fk['name']))
+                t = Table(table_name, metadata, *fks)
+                tbs.append(t)
+                all_fks.extend(fks)
+
+        for fkc in all_fks:
+            conn.execute(DropConstraint(fkc))
+
+        for table in tbs:
+            conn.execute(DropTable(table))
+
+        trans.commit()
+
+    @contextmanager
+    def session_context(self):
+        yield self._session
+        self._session.remove()
 
     def validate_key_code(self, data):
-        with session_context():
+        with self.session_context():
             key = KeyCode.query\
                          .options(joinedload(KeyCode.user))\
                          .filter(KeyCode.code == data)\
@@ -59,7 +118,7 @@ class SQLAlchemyBinding():
             return False
 
 
-class User(Base):
+class User(DeferredReflection, Base):
     __tablename__ = "user"
 
     id = Column(Integer, primary_key=True)
@@ -67,53 +126,11 @@ class User(Base):
     last_name = Column(Unicode(255))
     email = Column(Unicode(255))
     key_code_id = Column(Integer, ForeignKey("key_code.id"))
-    key_code = relationship("KeyCode", backref="user")
+    key_code = relationship("KeyCode", backref=backref("user", uselist=False))
 
 
-class KeyCode(Base):
+class KeyCode(DeferredReflection, Base):
     __tablename__ = "key_code"
 
     id = Column(Integer, primary_key=True)
     code = Column(Unicode(26))
-
-
-def init_db():
-    Base.metadata.create_all(db_engine)
-
-
-def drop_db():
-    """
-    It is a workaround for dropping all tables in sqlalchemy.
-    """
-    if db_engine is None:
-        raise Exception
-    conn = db_engine.connect()
-    trans = conn.begin()
-    inspector = engine.reflection.Inspector.from_engine(db_engine)
-    # gather all data first before dropping anything.
-    # some DBs lock after things have been dropped in
-    # a transaction.
-
-    metadata = MetaData()
-
-    tbs = []
-    all_fks = []
-
-    for table_name in inspector.get_table_names():
-        fks = []
-
-        for fk in inspector.get_foreign_keys(table_name):
-            if not fk['name']:
-                continue
-            fks.append(ForeignKeyConstraint((), (), name=fk['name']))
-            t = Table(table_name, metadata, *fks)
-            tbs.append(t)
-            all_fks.extend(fks)
-
-    for fkc in all_fks:
-        conn.execute(DropConstraint(fkc))
-
-    for table in tbs:
-        conn.execute(DropTable(table))
-
-    trans.commit()

@@ -1,6 +1,6 @@
 from unitcase import TestCase
 from rpi_door.drivers import AbstractDoor
-from rpi_door.models import init_db, drop_db, SQLAlchemyBinding
+from rpi_door.models import init_db, drop_db, SQLAlchemyMixin
 
 
 class BaseSuite(TestCase):
@@ -12,7 +12,7 @@ class BaseSuite(TestCase):
         drop_db()
 
 
-class TestDoor(AbstractDoor, SQLAlchemyBinding):
+class TestDoor(AbstractDoor, SQLAlchemyMixin):
 
     def __init__(self, *args, **kwargs):
         super(TestDoor, self).__init__(*args, **kwargs)
