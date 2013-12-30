@@ -43,13 +43,23 @@ class MockRead():
 
 class BaseSuite(TestCase):
 
-    def patch_read(self, data):
+    def patch_serial_read(self, data):
+        """ Patches serial.Serial so that so serial connection is required for
+        testing. `Serial.isOpen` is set to True, `Serial.inWaiting` always
+        returns 1, and `Serial.read` is a generator that returns one byte at a
+        time (from a give string). This allows to fully control what data is
+        read and procressed."""
+
         with patch("rpi_door.drivers.serial.Serial"):
             import serial
+
             ser = serial.Serial(0)
             ser.isOpen.return_value = True
             ser.inWaiting.return_value = 1
             ser.read = MockRead(data).next_byte
+
+            # TestDoor needs to be called within the patch so that the patched
+            # `serial.Serial` object is used instead.
             self.door = TestDoor(**{
                 "sqlalchemy.url": "sqlite://",
                 "sqlalchemy.echo": False,
@@ -75,7 +85,9 @@ class BaseSuite(TestCase):
             self.door.drop_db()
 
     def test_read_RFID(self):
-        self.patch_read("\n12345\r\n67890\r")
+        """ Tests to make sure the code is found within the give string.
+        A valid code matches \\n(.+)\\r """
+        self.patch_serial_read("\n12345\r\n67890\r")
         try:
             code = self.door.read_RFID()
         except StopIteration:
@@ -84,5 +96,13 @@ class BaseSuite(TestCase):
             self.assertEqual(code, "12345")
 
     def test_continuos_read(self):
-        self.patch_read("1234567890")
+        self.patch_serial_read("1234567890")
         self.assertRaises(StopIteration, self.door.read_RFID)
+
+    def test_data_property(self):
+        self.patch_serial_read("")
+        self.door.data = bytearray(range(50))
+        self.assertEquals(self.door.data, b"")
+        data = bytearray(range(30))
+        self.door.data = data
+        self.assertEquals(self.door.data, data)

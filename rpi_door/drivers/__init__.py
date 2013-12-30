@@ -37,6 +37,18 @@ class AbstractDoor():
         self.lock()
         self.toggle_red_led(on=True)
 
+    @property
+    def data(self):
+        return self._data
+
+    @data.setter
+    def data(self, data):
+        if len(data) > 41:
+            self._data = b""
+        else:
+            self._data = data
+        return self._data
+
     def main_loop(self):
         while True:
             data = self.read_RFID()
@@ -58,25 +70,23 @@ class AbstractDoor():
     def read_RFID(self):
         # flushes to remove any remaining bytes
         self.serial_conn.flushInput()
-        data = b""
+        self.data = b""
 
         while True:
             while self.serial_conn.inWaiting() > 0:
-                data += self.serial_conn.read(1)
+                self.data += self.serial_conn.read(1)
 
-                if data:
-                    str_data = str(data, 'utf-8')
+                if self.data:
+                    str_data = str(self.data, 'utf-8')
                     code = self.find_key_code(str_data)
                     if code:
                         return code
-                    if len(data) > 30:
-                        data = b""
 
     def check_for_lock_request(self):
         while True:
             sleep(0.1)
             if self.get_state():
-                sleep(30)
+                sleep(5)
                 self.lock()
                 break
 
