@@ -106,3 +106,5 @@ class BaseSuite(TestCase):
         data = bytearray(range(30))
         self.door.data = data
         self.assertEquals(self.door.data, data)
+        self.door.data += bytearray(range(20))
+        self.assertEquals(self.door.data, b"")
