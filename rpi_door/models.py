@@ -39,9 +39,11 @@ class SQLAlchemyMixin():
 
         self.engine = engine_from_config(kwargs, prefix="sqlalchemy.")
 
-        # calls the object's init in the stack
-        if isinstance(super(SQLAlchemyMixin, self), object):
+        # Tries to call the next object's init in the stack
+        try:
             super(SQLAlchemyMixin, self).__init__(*args, **kwargs)
+        except TypeError:
+            pass
 
         # prepare expects the tables to exist in the database already
         # this is kind of a hack. I'll need to think of a better way
@@ -67,7 +69,7 @@ class SQLAlchemyMixin():
         It is a workaround for dropping all tables in sqlalchemy.
         """
         if self.engine is None:
-            raise Exception
+            raise Exception("Engine doesn't exist!")
         conn = self.engine.connect()
         trans = conn.begin()
         inspector = engine.reflection.Inspector.from_engine(self.engine)

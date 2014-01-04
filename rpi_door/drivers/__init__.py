@@ -25,10 +25,8 @@ class AbstractDoor():
 
         port = kwargs.get("port", "/dev/ttyAMA0")
         baudrate = kwargs.get("baudrate", 2400)
-        if baudrate:
-            self.serial_conn = serial.Serial(port, baudrate, timeout=0)
-        else:
-            self.serial_conn = serial.Serial(port, timeout=0)
+
+        self.serial_conn = serial.Serial(port, baudrate, timeout=0)
 
         if not self.serial_conn.isOpen():
             raise SerialConnectionError("Serial connection couldn't be open.")

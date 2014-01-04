@@ -1,5 +1,6 @@
 from unittest import TestCase
 from unittest.mock import patch
+from testfixtures import ShouldRaise
 from rpi_door.models import SQLAlchemyMixin
 from rpi_door.drivers import AbstractDoor
 
@@ -11,7 +12,7 @@ class TestDoor(SQLAlchemyMixin, AbstractDoor):
         super(TestDoor, self).__init__(*args, **kwargs)
 
     def get_state(self):
-        pass
+        return True
 
     def unlock(self):
         pass
@@ -23,6 +24,12 @@ class TestDoor(SQLAlchemyMixin, AbstractDoor):
         pass
 
     def toggle_green_led(self, **kwargs):
+        pass
+
+
+class NotImplementedTestDoor(AbstractDoor):
+
+    def __init__(self, *args, **kwargs):
         pass
 
 
@@ -42,6 +49,9 @@ class MockRead():
 
 
 class BaseSuite(TestCase):
+
+    def setUp(self):
+        self.door = None
 
     def patch_serial_read(self, data):
         """ Patches serial.Serial so that so serial connection is required for
@@ -84,6 +94,21 @@ class BaseSuite(TestCase):
         if self.door:
             self.door.drop_db()
 
+    def test_serial_connection_error(self):
+        with patch("rpi_door.drivers.serial.Serial"):
+            import serial
+            from rpi_door.drivers import SerialConnectionError
+
+            ser = serial.Serial(0)
+            ser.isOpen.return_value = False
+
+            with ShouldRaise(SerialConnectionError):
+                self.door = TestDoor(**{
+                    "sqlalchemy.url": "sqlite://",
+                    "sqlalchemy.echo": False,
+                    "sqlalchemy.pool_recycle": 3600,
+                })
+
     def test_read_RFID(self):
         """ Tests to make sure the code is found within the give string.
         A valid code matches \\n(.+)\\r """
@@ -108,3 +133,33 @@ class BaseSuite(TestCase):
         self.assertEquals(self.door.data, data)
         self.door.data += bytearray(range(20))
         self.assertEquals(self.door.data, b"")
+
+
+class TestSQLAlchemyMixin(TestCase):
+
+    def setUp(self):
+        self.configuration = {
+            "sqlalchemy.url": "sqlite://",
+            "sqlalchemy.echo": False,
+            "sqlalchemy.pool_recycle": 3600,
+        }
+
+    def test_sqlalchemyminxin_init_stack(self):
+        from rpi_door.models import SQLAlchemyMixin
+
+        class TestClass():
+
+            def __init__(self, *args, **kwargs):
+                self.numbers += 5
+
+        class MixinTest(SQLAlchemyMixin, TestClass):
+
+            def __init__(self, *args, **kwargs):
+                self.numbers = 5
+                super(MixinTest, self).__init__(*args, **kwargs)
+
+        sqlmixin = MixinTest(**self.configuration)
+
+        self.assertEquals(sqlmixin.numbers, 10)
+
+        sqlmixin.drop_db()
