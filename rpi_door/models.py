@@ -17,6 +17,7 @@ from sqlalchemy import (
     Column,
     Integer,
     Unicode,
+    Boolean,
     ForeignKey,
 )
 from sqlalchemy.orm import (
@@ -33,15 +34,18 @@ from contextlib import contextmanager
 Base = declarative_base()
 
 
-class SQLAlchemyMixin():
+class SQLAlchemyBase():
 
     def __init__(self, *args, **kwargs):
 
         self.engine = engine_from_config(kwargs, prefix="sqlalchemy.")
 
-        # Tries to call the next object's init in the stack
+        # Tries to call the next object's __init__ in the inheritance
+        # If it throws an TypeError than we can assume the parent object is
+        # object or another object that doesn't accept *args and **kwargs. This
+        # is a bit of a draw back but works fine in this case.
         try:
-            super(SQLAlchemyMixin, self).__init__(*args, **kwargs)
+            super(SQLAlchemyBase, self).__init__(*args, **kwargs)
         except TypeError:
             pass
 
@@ -106,16 +110,17 @@ class SQLAlchemyMixin():
         yield self._session
         self._session.remove()
 
+
+class SQLAlchemyMixin(SQLAlchemyBase):
+
     def validate_key_code(self, data):
         with self.session_context():
             key = KeyCode.query\
                          .options(joinedload(KeyCode.user))\
                          .filter(KeyCode.code == data)\
                          .first()
-            # do other stuff
-            # push to redis??
-            # log stuff
-            if key and key.user:
+
+            if key and (key.user and key.enabled):
                 return True
             return False
 
@@ -135,4 +140,5 @@ class KeyCode(DeferredReflection, Base):
     __tablename__ = "key_code"
 
     id = Column(Integer, primary_key=True)
+    enabled = Column(Boolean, default=True)
     code = Column(Unicode(26))

@@ -46,7 +46,7 @@ class AbstractDoor():
     @data.setter
     def data(self, data):
         """Check to see if the data to be set is greater than 41. If so it sets
-        itsself to an empty bytearray
+        its self to an empty bytearray
         """
         if len(data) > 41:
             self._data = b""

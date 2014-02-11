@@ -78,18 +78,6 @@ class BaseSuite(TestCase):
                 "baudrate": None,
             })
 
-    def create_user_and_key(self, code="12345"):
-        from rpi_door.models import User, KeyCode
-
-        with self.door.session_context() as session:
-            user = User(first_name="Jimmy",
-                        last_name="Heap",
-                        email="jimmy.heap@test.com")
-            key_code = KeyCode(code=code)
-            user.key_code = key_code
-            session.add(user)
-            session.commit()
-
     def tearDown(self):
         if self.door:
             self.door.drop_db()
@@ -159,7 +147,60 @@ class TestSQLAlchemyMixin(TestCase):
                 super(MixinTest, self).__init__(*args, **kwargs)
 
         sqlmixin = MixinTest(**self.configuration)
+        sqlmixin.init_db()
+
+        from rpi_door.models import User
+
+        print(User.query.all())
 
         self.assertEquals(sqlmixin.numbers, 10)
+
+        sqlmixin.drop_db()
+
+    def create_user_and_key(self, sqla_instance, **kwargs):
+        from rpi_door.models import User, KeyCode
+
+        first_name = kwargs.get('first_name', 'Jimmy')
+        last_name = kwargs.get('last_name', 'Heaps')
+        email = kwargs.get('email', 'jimmy.heaps@fakeaddress.org')
+
+        code = kwargs.get('code', '12345')
+        enabled = kwargs.get('enabled', True)
+
+        with sqla_instance.session_context() as session:
+            user = User(first_name=first_name,
+                        last_name=last_name,
+                        email=email)
+            key_code = KeyCode(code=code, enabled=enabled)
+            user.key_code = key_code
+            session.add(user)
+            session.commit()
+
+    def test_validate_key_code(self):
+        from rpi_door.models import SQLAlchemyMixin
+
+        sqlmixin = SQLAlchemyMixin(**self.configuration)
+        sqlmixin.init_db()
+
+        # use defaults for the first user save for the code
+        user_one = {
+            'code': '12345'
+        }
+
+        self.create_user_and_key(sqlmixin, **user_one)
+
+        user_two = {
+            'first_name': "Derpina",
+            'last_name': "Derps",
+            'email': "derpina.derps@fakeaddress.org",
+            'code': '67890',
+            'enabled': False,
+        }
+
+        self.create_user_and_key(sqlmixin, **user_two)
+
+        self.assertTrue(sqlmixin.validate_key_code(user_one['code']))
+
+        self.assertFalse(sqlmixin.validate_key_code(user_two['code']))
 
         sqlmixin.drop_db()

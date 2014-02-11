@@ -3,7 +3,7 @@ from rpi_door.drivers.GPIO import RPiDoor
 
 rpi_door = RPiDoor(**{
     "sqlalchemy.url": "sqlite://database.db",
-    "sqlalchemy.echo": True,
+    "sqlalchemy.echo": False,
     "sqlalchemy.pool_recycle": 3600
 })
 
