@@ -5,10 +5,10 @@
 
 import RPi.GPIO as GPIO
 from . import AbstractDoor
-from ..models import SQLAlchemyBinding
+from ..models import SQLAlchemyMixin
 
 
-class RPiDoor(SQLAlchemyBinding, AbstractDoor):
+class RPiDoor(SQLAlchemyMixin, AbstractDoor):
 
     GREEN = 23
     RED = 24
