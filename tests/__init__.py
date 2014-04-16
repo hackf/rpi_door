@@ -123,6 +123,121 @@ class BaseSuite(TestCase):
         self.assertEquals(self.door.data, b"")
 
 
+class TestUser(TestCase):
+
+    def setUp(self):
+        self.configuration = {
+            "sqlalchemy.url": "sqlite://",
+            "sqlalchemy.echo": False,
+            "sqlalchemy.pool_recycle": 3600,
+        }
+
+        from rpi_door.models import SQLAlchemyMixin, User, KeyCode
+
+        self.sqlmixin = SQLAlchemyMixin(**self.configuration)
+        self.sqlmixin.init_db()
+
+        # use defaults for the first user save for the code
+
+        self.user_data = {
+            'first_name': "Derp",
+            'last_name': "Derps",
+            'email': "derp.derps@fakeaddress.org",
+        }
+
+        self.key_data = {
+            'code': '67890',
+            'enabled': False,
+        }
+
+        self.key = KeyCode(**self.key_data)
+        self.user = User(**self.user_data)
+        self.user.key_code = self.key
+
+        with self.sqlmixin.session_context() as session:
+            session.add(self.user)
+            session.commit()
+
+    def test_first_name(self):
+        self.assertIsNotNone(self.user.first_name)
+        self.assertEquals(self.user.first_name, self.user_data['first_name'])
+
+    def test_last_name(self):
+        self.assertIsNotNone(self.user.last_name)
+        self.assertEquals(self.user.last_name, self.user_data['last_name'])
+
+    def test_email(self):
+        self.assertIsNotNone(self.user.email)
+        self.assertEquals(self.user.email, self.user_data['email'])
+
+    def test_unique_email(self):
+        from rpi_door.models import User
+        from sqlalchemy.exc import IntegrityError
+        user = User(**self.user_data)
+        with self.sqlmixin.session_context() as session:
+            session.add(user)
+            with ShouldRaise(IntegrityError):
+                session.commit()
+
+    def test_key_code(self):
+        self.assertIsNotNone(self.user.key_code)
+        self.assertEquals(self.user.key_code_id, 1)
+
+    def tearDown(self):
+        if self.sqlmixin:
+            self.sqlmixin.drop_db()
+
+
+class TestKeyCode(TestCase):
+
+    def setUp(self):
+        self.configuration = {
+            "sqlalchemy.url": "sqlite://",
+            "sqlalchemy.echo": False,
+            "sqlalchemy.pool_recycle": 3600,
+        }
+
+        from rpi_door.models import SQLAlchemyMixin, KeyCode
+
+        self.sqlmixin = SQLAlchemyMixin(**self.configuration)
+        self.sqlmixin.init_db()
+
+        # use defaults for the first user save for the code
+
+        self.key_data = {
+            'code': '67890',
+            'enabled': False,
+        }
+
+        self.key = KeyCode(**self.key_data)
+
+        with self.sqlmixin.session_context() as session:
+            session.add(self.key)
+            session.commit()
+
+    def test_enabled(self):
+        self.assertIsNotNone(self.key.code)
+        self.assertEquals(self.key.enabled, self.key_data['enabled'])
+        self.assertIsInstance(self.key.enabled, bool)
+
+    def test_code(self):
+        self.assertIsNotNone(self.key.code)
+        self.assertEquals(self.key.code, self.key_data['code'])
+
+    def test_code_unique(self):
+        from rpi_door.models import KeyCode
+        from sqlalchemy.exc import IntegrityError
+        key = KeyCode(**self.key_data)
+        with self.sqlmixin.session_context() as session:
+            session.add(key)
+            with ShouldRaise(IntegrityError):
+                session.commit()
+
+    def tearDown(self):
+        if self.sqlmixin:
+            self.sqlmixin.drop_db()
+
+
 class TestSQLAlchemyMixin(TestCase):
 
     def setUp(self):
@@ -131,6 +246,27 @@ class TestSQLAlchemyMixin(TestCase):
             "sqlalchemy.echo": False,
             "sqlalchemy.pool_recycle": 3600,
         }
+
+        self.sqlmixin = None
+
+    def create_user_and_key(self, sqla_instance, **kwargs):
+        from rpi_door.models import User, KeyCode
+
+        first_name = kwargs.get('first_name', 'Derp')
+        last_name = kwargs.get('last_name', 'Heaps')
+        email = kwargs.get('email', 'derp.heaps@fakeaddress.org')
+
+        code = kwargs.get('code', '12345')
+        enabled = kwargs.get('enabled', True)
+
+        with sqla_instance.session_context() as session:
+            user = User(first_name=first_name,
+                        last_name=last_name,
+                        email=email)
+            key_code = KeyCode(code=code, enabled=enabled)
+            user.key_code = key_code
+            session.add(user)
+            session.commit()
 
     def test_sqlalchemyminxin_init_stack(self):
         from rpi_door.models import SQLAlchemyMixin
@@ -146,61 +282,57 @@ class TestSQLAlchemyMixin(TestCase):
                 self.numbers = 5
                 super(MixinTest, self).__init__(*args, **kwargs)
 
-        sqlmixin = MixinTest(**self.configuration)
-        sqlmixin.init_db()
+        self.sqlmixin = MixinTest(**self.configuration)
+        self.sqlmixin.init_db()
 
-        from rpi_door.models import User
-
-        print(User.query.all())
-
-        self.assertEquals(sqlmixin.numbers, 10)
-
-        sqlmixin.drop_db()
-
-    def create_user_and_key(self, sqla_instance, **kwargs):
-        from rpi_door.models import User, KeyCode
-
-        first_name = kwargs.get('first_name', 'Jimmy')
-        last_name = kwargs.get('last_name', 'Heaps')
-        email = kwargs.get('email', 'jimmy.heaps@fakeaddress.org')
-
-        code = kwargs.get('code', '12345')
-        enabled = kwargs.get('enabled', True)
-
-        with sqla_instance.session_context() as session:
-            user = User(first_name=first_name,
-                        last_name=last_name,
-                        email=email)
-            key_code = KeyCode(code=code, enabled=enabled)
-            user.key_code = key_code
-            session.add(user)
-            session.commit()
+        self.assertEquals(self.sqlmixin.numbers, 10)
 
     def test_validate_key_code(self):
         from rpi_door.models import SQLAlchemyMixin
 
-        sqlmixin = SQLAlchemyMixin(**self.configuration)
-        sqlmixin.init_db()
+        self.sqlmixin = SQLAlchemyMixin(**self.configuration)
+        self.sqlmixin.init_db()
 
         # use defaults for the first user save for the code
         user_one = {
             'code': '12345'
         }
 
-        self.create_user_and_key(sqlmixin, **user_one)
+        self.create_user_and_key(self.sqlmixin, **user_one)
 
         user_two = {
-            'first_name': "Derpina",
+            'first_name': "Derp",
             'last_name': "Derps",
-            'email': "derpina.derps@fakeaddress.org",
+            'email': "derp.derps@fakeaddress.org",
             'code': '67890',
             'enabled': False,
         }
 
-        self.create_user_and_key(sqlmixin, **user_two)
+        self.create_user_and_key(self.sqlmixin, **user_two)
 
-        self.assertTrue(sqlmixin.validate_key_code(user_one['code']))
+        self.assertTrue(self.sqlmixin.validate_key_code(user_one['code']))
 
-        self.assertFalse(sqlmixin.validate_key_code(user_two['code']))
+        self.assertFalse(self.sqlmixin.validate_key_code(user_two['code']))
 
-        sqlmixin.drop_db()
+    def test_create_user(self):
+        from rpi_door.models import SQLAlchemyMixin, User
+
+        self.sqlmixin = SQLAlchemyMixin(**self.configuration)
+        self.sqlmixin.init_db()
+
+        data = {
+            'first_name': 'Derp',
+            'last_name': 'Derps',
+            'email': 'derp.derps@fakeaddress.org',
+        }
+
+        self.sqlmixin.create_user(data)
+        user = User.query.filter_by(email=data['email']).one()
+        self.assertIsNotNone(user)
+        self.assertEquals(user.first_name, data['first_name'])
+        self.assertEquals(user.last_name, data['last_name'])
+        self.assertEquals(user.email, data['email'])
+
+    def tearDown(self):
+        if self.sqlmixin:
+            self.sqlmixin.drop_db()
