@@ -1,7 +1,7 @@
 from unittest import TestCase
 from unittest.mock import patch
 from testfixtures import ShouldRaise
-from rpi_door.models import SQLAlchemyMixin
+from rpi_database.models import SQLAlchemyMixin
 from rpi_door.drivers import AbstractDoor
 
 
@@ -132,7 +132,7 @@ class TestUser(TestCase):
             "sqlalchemy.pool_recycle": 3600,
         }
 
-        from rpi_door.models import SQLAlchemyMixin, User, KeyCode
+        from rpi_database.models import SQLAlchemyMixin, User, KeyCode
 
         self.sqlmixin = SQLAlchemyMixin(**self.configuration)
         self.sqlmixin.init_db()
@@ -171,7 +171,7 @@ class TestUser(TestCase):
         self.assertEquals(self.user.email, self.user_data['email'])
 
     def test_unique_email(self):
-        from rpi_door.models import User
+        from rpi_database.models import User
         from sqlalchemy.exc import IntegrityError
         user = User(**self.user_data)
         with self.sqlmixin.session_context() as session:
@@ -197,7 +197,7 @@ class TestKeyCode(TestCase):
             "sqlalchemy.pool_recycle": 3600,
         }
 
-        from rpi_door.models import SQLAlchemyMixin, KeyCode
+        from rpi_database.models import SQLAlchemyMixin, KeyCode
 
         self.sqlmixin = SQLAlchemyMixin(**self.configuration)
         self.sqlmixin.init_db()
@@ -225,7 +225,7 @@ class TestKeyCode(TestCase):
         self.assertEquals(self.key.code, self.key_data['code'])
 
     def test_code_unique(self):
-        from rpi_door.models import KeyCode
+        from rpi_database.models import KeyCode
         from sqlalchemy.exc import IntegrityError
         key = KeyCode(**self.key_data)
         with self.sqlmixin.session_context() as session:
@@ -250,7 +250,7 @@ class TestSQLAlchemyMixin(TestCase):
         self.sqlmixin = None
 
     def create_user_and_key(self, sqla_instance, **kwargs):
-        from rpi_door.models import User, KeyCode
+        from rpi_database.models import User, KeyCode
 
         first_name = kwargs.get('first_name', 'Derp')
         last_name = kwargs.get('last_name', 'Heaps')
@@ -269,7 +269,7 @@ class TestSQLAlchemyMixin(TestCase):
             session.commit()
 
     def test_sqlalchemyminxin_init_stack(self):
-        from rpi_door.models import SQLAlchemyMixin
+        from rpi_database.models import SQLAlchemyMixin
 
         class TestClass():
 
@@ -288,7 +288,7 @@ class TestSQLAlchemyMixin(TestCase):
         self.assertEquals(self.sqlmixin.numbers, 10)
 
     def test_validate_key_code(self):
-        from rpi_door.models import SQLAlchemyMixin
+        from rpi_database.models import SQLAlchemyMixin
 
         self.sqlmixin = SQLAlchemyMixin(**self.configuration)
         self.sqlmixin.init_db()
@@ -315,7 +315,7 @@ class TestSQLAlchemyMixin(TestCase):
         self.assertFalse(self.sqlmixin.validate_key_code(user_two['code']))
 
     def test_create_user(self):
-        from rpi_door.models import SQLAlchemyMixin, User
+        from rpi_database.models import SQLAlchemyMixin, User
 
         self.sqlmixin = SQLAlchemyMixin(**self.configuration)
         self.sqlmixin.init_db()
