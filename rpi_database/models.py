@@ -107,22 +107,32 @@ class SQLAlchemyBase():
 
     @contextmanager
     def session_context(self):
-        yield self._session
-        self._session.remove()
+        try:
+            yield self._session
+        except Exception as error:
+            self._session.rollback()
+            raise error
+        finally:
+            self._session.remove()
 
 
 class SQLAlchemyMixin(SQLAlchemyBase):
 
     def validate_key_code(self, data):
-        with self.session_context():
-            key = KeyCode.query\
-                         .options(joinedload(KeyCode.user))\
-                         .filter(KeyCode.code == data)\
-                         .first()
+        key = KeyCode.query\
+                     .options(joinedload(KeyCode.user))\
+                     .filter(KeyCode.code == data)\
+                     .first()
 
-            if key and (key.user and key.enabled):
-                return True
-            return False
+        if key and (key.user and key.enabled):
+            return True
+        return False
+
+    def create_user(self, data):
+        with self.session_context() as session:
+            user = User(**data)
+            session.add(user)
+            session.commit()
 
 
 class User(DeferredReflection, Base):
@@ -131,7 +141,7 @@ class User(DeferredReflection, Base):
     id = Column(Integer, primary_key=True)
     first_name = Column(Unicode(255))
     last_name = Column(Unicode(255))
-    email = Column(Unicode(255))
+    email = Column(Unicode(255), unique=True)
     key_code_id = Column(Integer, ForeignKey("key_code.id"))
     key_code = relationship("KeyCode", backref=backref("user", uselist=False))
 
@@ -141,4 +151,4 @@ class KeyCode(DeferredReflection, Base):
 
     id = Column(Integer, primary_key=True)
     enabled = Column(Boolean, default=True)
-    code = Column(Unicode(26))
+    code = Column(Unicode(26), unique=True)
