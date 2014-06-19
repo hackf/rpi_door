@@ -2,7 +2,7 @@ from unittest import TestCase
 from unittest.mock import patch
 from testfixtures import ShouldRaise
 from rpi_database.models import SQLAlchemyMixin
-from rpi_door.drivers import AbstractDoor
+from rpi_door import AbstractDoor
 
 
 class TestDoor(SQLAlchemyMixin, AbstractDoor):
@@ -60,7 +60,7 @@ class BaseSuite(TestCase):
         time (from a give string). This allows to fully control what data is
         read and procressed."""
 
-        with patch("rpi_door.drivers.serial.Serial"):
+        with patch("rpi_door.serial.Serial"):
             import serial
 
             ser = serial.Serial(0)
@@ -83,9 +83,9 @@ class BaseSuite(TestCase):
             self.door.drop_db()
 
     def test_serial_connection_error(self):
-        with patch("rpi_door.drivers.serial.Serial"):
+        with patch("rpi_door.serial.Serial"):
             import serial
-            from rpi_door.drivers import SerialConnectionError
+            from rpi_door import SerialConnectionError
 
             ser = serial.Serial(0)
             ser.isOpen.return_value = False

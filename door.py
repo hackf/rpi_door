@@ -1,5 +1,5 @@
 #!/usr/bin/python
-from rpi_door.drivers.GPIO import RPiDoor
+from rpi_door.GPIO import RPiDoor
 
 rpi_door = RPiDoor(**{
     "sqlalchemy.url": "sqlite:///database.db",
